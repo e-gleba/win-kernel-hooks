@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.30)
 
 project(cxx_project
         VERSION 1.0.0
@@ -6,6 +6,9 @@ project(cxx_project
         LANGUAGES C CXX)
 
 list(APPEND CMAKE_PREFIX_PATH cmake/cfg)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(clang_format CONFIG REQUIRED)
 find_package(clang_tidy CONFIG REQUIRED)
