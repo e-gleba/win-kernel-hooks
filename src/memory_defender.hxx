@@ -6,12 +6,7 @@
 #include <format>
 #include <string>
 #include <vector>
-
-// Windows API includes with proper ordering to avoid NTSTATUS conflicts
-#define WIN32_NO_STATUS // Prevent double definition of NTSTATUS values
 #include <windows.h>
-#undef WIN32_NO_STATUS
-#include <ntstatus.h> // For STATUS_ACCESS_DENIED and other NTSTATUS codes
 
 struct sys_hook
 {

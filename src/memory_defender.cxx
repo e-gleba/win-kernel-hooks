@@ -1,6 +1,7 @@
 #include "memory_defender.hxx"
 
 #include <iostream>
+#include <numeric>
 
 void memory_defender::log(const std::string& msg)
 {
@@ -66,19 +67,16 @@ BOOL memory_defender::hooked_read_process_memory(HANDLE  process,
                                                  SIZE_T  size,
                                                  SIZE_T* bytes_read)
 {
-    const DWORD pid = GetProcessId(process);
-    log(std::format("blocked ReadProcessMemory info:\n"
-                    "  process_handle: {:#x} (pid: {})\n"
-                    "  address: {:#x}\n"
-                    "  buffer: {:#x}\n"
-                    "  size: {:#x}\n"
-                    "  bytes_read_ptr: {:#x}",
-                    reinterpret_cast<uintptr_t>(process),
-                    pid,
-                    reinterpret_cast<uintptr_t>(address),
-                    reinterpret_cast<uintptr_t>(buffer),
-                    size,
-                    reinterpret_cast<uintptr_t>(bytes_read)));
+    log(std::format(
+        "blocked read_process_memory: handle: {:#x}, pid: {}, addr: {:#x}, "
+        "buf_ptr: {:#x}, size: {:#x}, read_ptr: {:#x}",
+        std::bit_cast<std::uintptr_t>(process),
+        GetProcessId(process),
+        std::bit_cast<std::uintptr_t>(address),
+        std::bit_cast<std::uintptr_t>(buffer),
+        size,
+        std::bit_cast<std::uintptr_t>(bytes_read)));
+
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
 }
@@ -89,39 +87,31 @@ BOOL memory_defender::hooked_write_process_memory(HANDLE  process,
                                                   SIZE_T  size,
                                                   SIZE_T* bytes_written)
 {
-    const DWORD pid  = GetProcessId(process);
-    const auto  data = static_cast<const unsigned char*>(buffer);
-
-    std::string buffer_preview;
-    if (data && size > 0)
+    const auto hex_preview = [](const auto* data, const size_t len)
     {
-        // Safely peek at the first 16-byte max
-        const size_t preview_size = min(size, size_t(16));
-        for (size_t i = 0; i < preview_size; ++i)
-        {
-            buffer_preview += std::format("{:02x} ", data[i]);
-        }
-    }
-    else
-    {
-        buffer_preview = "null";
-    }
+        if (!data || !len)
+            return std::string("null");
 
-    log(std::format("blocked WriteProcessMemory:\n"
-                    "  process_handle: {:#x}\n"
-                    "  process_id: {}\n"
-                    "  target_address: {:#x}\n"
-                    "  buffer_ptr: {:#x}\n"
-                    "  write_size: {:#x}\n"
-                    "  bytes_written_ptr: {:#x}\n"
-                    "  buffer_preview: {}",
-                    reinterpret_cast<uintptr_t>(process),
-                    pid,
-                    reinterpret_cast<uintptr_t>(address),
-                    reinterpret_cast<uintptr_t>(buffer),
-                    size,
-                    reinterpret_cast<uintptr_t>(bytes_written),
-                    buffer_preview));
+        const auto  preview_size = min(len, size_t{ 16 });
+        const auto* bytes        = static_cast<const std::uint8_t*>(data);
+
+        return std::accumulate(bytes,
+                               bytes + preview_size,
+                               std::string{},
+                               [](auto&& s, auto b)
+                               { return s + std::format("{:02x} ", b); });
+    };
+
+    log(std::format(
+        "blocked write_process_memory: handle: {:#x}, pid: {}, addr: {:#x}, "
+        "buf_ptr: {:#x}, size: {:#x}, written_ptr: {:#x}, preview: {}",
+        std::bit_cast<std::uintptr_t>(process),
+        GetProcessId(process),
+        std::bit_cast<std::uintptr_t>(address),
+        std::bit_cast<std::uintptr_t>(buffer),
+        size,
+        std::bit_cast<std::uintptr_t>(bytes_written),
+        hex_preview(buffer, size)));
 
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
