@@ -6,7 +6,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.25.0+-brightgreen?style=for-the-badge&logo=cmake)](https://cmake.org)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-red?style=for-the-badge)](https://www.gnu.org/licenses/agpl-3.0.en.html)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://www.docker.com)
-[![Platform](https://img.shields.io/badge/Platforms-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey?style=for-the-badge)](https://github.com/geugenm/template-cpp-project)
+[![Platform](https://img.shields.io/badge/Platforms-Windows-lightgrey?style=for-the-badge)](https://github.com/geugenm/template-cpp-project)
 
 </div>
 
@@ -31,16 +31,6 @@
 
 ## 💾 Installation
 
-### 🍎 macOS
-
-```bash
-# Homebrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Dependencies
-brew install cmake llvm doxygen
-```
-
 ### 🪟 Windows
 
 ```powershell
@@ -49,22 +39,6 @@ brew install cmake llvm doxygen
 
 # Dependencies
 choco install cmake llvm visualstudio2019buildtools doxygen
-```
-
-### 🐧 Linux
-
-#### Ubuntu/Debian
-
-```bash
-sudo apt update
-sudo apt install cmake g++ doxygen
-```
-
-#### Fedora
-
-```bash
-sudo dnf check-update
-sudo dnf install cmake gcc-c++ doxygen
 ```
 
 ## 🛠️ Build & Deployment
@@ -100,10 +74,6 @@ cmake --build . --target doxygen
 cd build/release/docs/doxygen/html
 python -m http.server 8080
 ```
-
-## 🚧 Roadmap
-
-- [ ] Add Android build support
 
 ## 🤝 Contributing
 
