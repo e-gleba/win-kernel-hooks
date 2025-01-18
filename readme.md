@@ -19,7 +19,6 @@
 - **🧪 CTest Integration**: Straightforward testing setup
 - **🐳 Docker Support**: Pre-configured containerization
 - **💻 IDE Compatibility**: Works with QtCreator, CLion, Visual Studio, KDevelop
-- **🌐 Cross-Platform**: Linux, Windows, macOS support
 - **🏗️ CMake-Driven**: Streamlined CI/CD configuration
 
 ## 🚧 Prerequisites
