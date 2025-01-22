@@ -33,6 +33,15 @@ public:
                                 SIZE_T  size,
                                 SIZE_T* bytes_written);
 
+    [[nodiscard]] static HANDLE WINAPI
+    hooked_create_toolhelp32_snapshot(DWORD flags, DWORD process_id);
+
+    [[nodiscard]] static HMODULE __stdcall hooked_load_library_a(
+        LPCSTR lib_file_name);
+    [[nodiscard]] static HMODULE __stdcall hooked_load_library_w(
+        LPCWSTR lib_file_name);
+    [[nodiscard]] static BOOL __stdcall hooked_free_library(HMODULE module);
+
     [[nodiscard]] static bool initialize();
 
     static void cleanup();

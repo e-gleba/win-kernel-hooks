@@ -2,6 +2,19 @@
 
 #include <iostream>
 #include <numeric>
+#include <source_location>
+#include <stacktrace>
+
+void print_stacktrace()
+{
+    for (const std::stacktrace trace = std::stacktrace::current();
+         const auto&           entry : trace)
+    {
+        std::cerr << entry.description() << " at [" << entry.source_file()
+                  << "] : [" << entry.source_line() << "]\n";
+    }
+    std::cerr.flush();
+}
 
 void memory_defender::log(const std::string& msg)
 {
@@ -28,7 +41,9 @@ bool memory_defender::install_hook(void*              target,
                         PAGE_EXECUTE_READWRITE,
                         &old_protect))
     {
-        log(std::format("failed to change memory protection for: {}", name));
+        log(std::format("failed to change memory protection for: {}, error: {}",
+                        name,
+                        GetLastError()));
         return false;
     }
 
@@ -52,8 +67,15 @@ bool memory_defender::install_hook(void*              target,
     // Install hook
     std::memcpy(target, jump.data(), jmp_instruction::size);
 
-    // Restore original protection
-    VirtualProtect(target, jmp_instruction::size, old_protect, &old_protect);
+    if (!VirtualProtect(
+            target, jmp_instruction::size, old_protect, &old_protect))
+    {
+        log(std::format(
+            "failed to restore memory protection for: {}, error: {}",
+            name,
+            GetLastError()));
+        return false;
+    }
 
     // Store hook info
     hooks.push_back(std::move(new_hook));
@@ -77,6 +99,8 @@ BOOL memory_defender::hooked_read_process_memory(HANDLE  process,
         size,
         std::bit_cast<std::uintptr_t>(bytes_read)));
 
+    print_stacktrace();
+
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
 }
@@ -90,7 +114,9 @@ BOOL memory_defender::hooked_write_process_memory(HANDLE  process,
     const auto hex_preview = [](const auto* data, const size_t len)
     {
         if (!data || !len)
+        {
             return std::string("null");
+        }
 
         const auto  preview_size = min(len, size_t{ 16 });
         const auto* bytes        = static_cast<const std::uint8_t*>(data);
@@ -98,7 +124,7 @@ BOOL memory_defender::hooked_write_process_memory(HANDLE  process,
         return std::accumulate(bytes,
                                bytes + preview_size,
                                std::string{},
-                               [](auto&& s, auto b)
+                               [](const auto&& s, const auto b)
                                { return s + std::format("{:02x} ", b); });
     };
 
@@ -113,8 +139,63 @@ BOOL memory_defender::hooked_write_process_memory(HANDLE  process,
         std::bit_cast<std::uintptr_t>(bytes_written),
         hex_preview(buffer, size)));
 
+    print_stacktrace();
+
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
+}
+
+HANDLE memory_defender::hooked_create_toolhelp32_snapshot(DWORD flags,
+                                                          DWORD process_id)
+{
+    log(std::format("blocked create_toolhelp32_snapshot: flags: {:#x}, pid: {}",
+                    flags,
+                    process_id));
+
+    print_stacktrace();
+
+    SetLastError(ERROR_ACCESS_DENIED);
+    return INVALID_HANDLE_VALUE;
+}
+
+HMODULE __stdcall memory_defender::hooked_load_library_a(LPCSTR lib_file_name)
+{
+    using func_t           = HMODULE(__stdcall*)(LPCSTR);
+    static func_t original = reinterpret_cast<func_t>(
+        GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA"));
+
+    log(std::format("intercepted LoadLibraryA: lib: '{}'",
+                    lib_file_name ? lib_file_name : "null"));
+    print_stacktrace();
+
+    return original(lib_file_name);
+}
+
+HMODULE __stdcall memory_defender::hooked_load_library_w(LPCWSTR lib_file_name)
+{
+    using func_t         = HMODULE(__stdcall*)(LPCWSTR);
+    static auto original = reinterpret_cast<func_t>(
+        GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW"));
+
+    std::wstring_view w_name(lib_file_name ? lib_file_name : L"null");
+    log(std::format("intercepted LoadLibraryW: lib: '{}'",
+                    std::string(w_name.begin(), w_name.end())));
+    print_stacktrace();
+
+    return original(lib_file_name);
+}
+
+BOOL __stdcall memory_defender::hooked_free_library(HMODULE module)
+{
+    using func_t         = BOOL(__stdcall*)(HMODULE);
+    static auto original = reinterpret_cast<func_t>(
+        GetProcAddress(GetModuleHandleA("kernel32.dll"), "FreeLibrary"));
+
+    log(std::format("intercepted FreeLibrary: module: {:#x}",
+                    std::bit_cast<std::uintptr_t>(module)));
+    print_stacktrace();
+
+    return original(module);
 }
 
 bool memory_defender::initialize()
@@ -137,16 +218,23 @@ bool memory_defender::initialize()
 
     const auto ntdll    = GetModuleHandleA("ntdll.dll");
     const auto kernel32 = GetModuleHandleA("kernel32.dll");
+    const auto exe_module =
+        GetModuleHandleA(nullptr); // Get the exe module we're injected into
 
-    if (!ntdll || !kernel32)
+    if (!ntdll || !kernel32 || !exe_module)
     {
         log("failed to get required module handles");
         return false;
     }
 
     log("loading function addresses...");
-    void* read_mem  = GetProcAddress(kernel32, "ReadProcessMemory");
-    void* write_mem = GetProcAddress(kernel32, "WriteProcessMemory");
+    void* read_mem      = GetProcAddress(kernel32, "ReadProcessMemory");
+    void* write_mem     = GetProcAddress(kernel32, "WriteProcessMemory");
+    void* snapshot_func = GetProcAddress(kernel32, "CreateToolhelp32Snapshot");
+
+    void* load_lib_a = GetProcAddress(kernel32, "LoadLibraryA");
+    void* load_lib_w = GetProcAddress(kernel32, "LoadLibraryW");
+    void* free_lib   = GetProcAddress(kernel32, "FreeLibrary");
 
     log("installing memory protection hooks...");
     const bool result =
@@ -155,7 +243,19 @@ bool memory_defender::initialize()
                      "ReadProcessMemory") &&
         install_hook(write_mem,
                      reinterpret_cast<void*>(hooked_write_process_memory),
-                     "WriteProcessMemory");
+                     "WriteProcessMemory") &&
+        install_hook(snapshot_func,
+                     reinterpret_cast<void*>(hooked_create_toolhelp32_snapshot),
+                     "CreateToolhelp32Snapshot") &&
+        install_hook(load_lib_a,
+                     reinterpret_cast<void*>(hooked_load_library_a),
+                     "LoadLibraryA") &&
+        install_hook(load_lib_w,
+                     reinterpret_cast<void*>(hooked_load_library_w),
+                     "LoadLibraryW") &&
+        install_hook(free_lib,
+                     reinterpret_cast<void*>(hooked_free_library),
+                     "FreeLibrary");
 
     if (result)
     {
