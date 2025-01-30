@@ -5,7 +5,7 @@
 #include <imgui.h>
 #include <print>
 
-auto init_glfw() -> std::expected<GLFWwindow*, const char*>
+[[nodiscard]] auto init_glfw() -> std::expected<GLFWwindow*, const char*>
 {
     if (!glfwInit())
     {
@@ -59,6 +59,8 @@ int main()
             glfwSetWindowShouldClose(window.value(), GLFW_TRUE);
         }
         ImGui::End();
+
+        ImGui::ShowDemoWindow();
 
         ImGui::Render();
         int display_w, display_h;

@@ -19,24 +19,11 @@ file(
 
 # Options
 set(IMGUI_EXAMPLES FALSE)
-set(IMGUI_DEMO FALSE)
+set(IMGUI_DEMO TRUE)
 set(IMGUI_ENABLE_STDLIB_SUPPORT TRUE)
 
-
 # FreeType (https://github.com/cpm-cmake/CPM.cmake/wiki/More-Snippets#freetype)
-cpmaddpackage(
-        NAME
-        freetype
-        GIT_REPOSITORY
-        https://github.com/aseprite/freetype2.git
-        GIT_TAG
-        VER-2-10-0
-        VERSION
-        2.10.0)
-
-if (freetype_ADDED)
-    add_library(Freetype::Freetype ALIAS freetype)
-endif ()
+find_package(freetype CONFIG REQUIRED)
 
 set(FREETYPE_FOUND TRUE)
 set(FREETYPE_INCLUDE_DIRS "")
@@ -51,13 +38,4 @@ target_include_directories(imgui INTERFACE "${imgui_SOURCE_DIR}")
 target_sources(
         imgui
         PUBLIC ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h
-        ${imgui_SOURCE_DIR}/imgui_internal.h
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-        ${imgui_SOURCE_DIR}/imgui.cpp
-        ${imgui_SOURCE_DIR}/imgui.h
-        ${imgui_SOURCE_DIR}/imstb_rectpack.h
-        ${imgui_SOURCE_DIR}/imstb_textedit.h
-        ${imgui_SOURCE_DIR}/imstb_truetype.h)
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
