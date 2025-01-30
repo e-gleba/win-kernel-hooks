@@ -164,8 +164,8 @@ HANDLE memory_defender::hooked_create_toolhelp32_snapshot(DWORD flags,
 
 HMODULE __stdcall memory_defender::hooked_load_library_a(LPCSTR lib_file_name)
 {
-    using func_t           = HMODULE(__stdcall*)(LPCSTR);
-    static func_t original = reinterpret_cast<func_t>(
+    using func_t         = HMODULE(__stdcall*)(LPCSTR);
+    static auto original = reinterpret_cast<func_t>(
         GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA"));
 
     log(std::format("intercepted LoadLibraryA: lib: '{}'",
