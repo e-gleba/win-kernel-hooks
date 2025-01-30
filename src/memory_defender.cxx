@@ -5,6 +5,8 @@
 #include <source_location>
 #include <stacktrace>
 
+namespace misc
+{
 void print_stacktrace()
 {
     for (const std::stacktrace trace = std::stacktrace::current();
@@ -15,6 +17,8 @@ void print_stacktrace()
     }
     std::cerr.flush();
 }
+
+} // namespace misc
 
 void memory_defender::log(const std::string& msg)
 {
@@ -99,7 +103,7 @@ BOOL memory_defender::hooked_read_process_memory(HANDLE  process,
         size,
         std::bit_cast<std::uintptr_t>(bytes_read)));
 
-    print_stacktrace();
+    misc::print_stacktrace();
 
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
@@ -139,7 +143,7 @@ BOOL memory_defender::hooked_write_process_memory(HANDLE  process,
         std::bit_cast<std::uintptr_t>(bytes_written),
         hex_preview(buffer, size)));
 
-    print_stacktrace();
+    misc::print_stacktrace();
 
     SetLastError(ERROR_ACCESS_DENIED);
     return FALSE;
@@ -152,7 +156,7 @@ HANDLE memory_defender::hooked_create_toolhelp32_snapshot(DWORD flags,
                     flags,
                     process_id));
 
-    print_stacktrace();
+    misc::print_stacktrace();
 
     SetLastError(ERROR_ACCESS_DENIED);
     return INVALID_HANDLE_VALUE;
@@ -166,7 +170,7 @@ HMODULE __stdcall memory_defender::hooked_load_library_a(LPCSTR lib_file_name)
 
     log(std::format("intercepted LoadLibraryA: lib: '{}'",
                     lib_file_name ? lib_file_name : "null"));
-    print_stacktrace();
+    misc::print_stacktrace();
 
     return original(lib_file_name);
 }
@@ -180,7 +184,7 @@ HMODULE __stdcall memory_defender::hooked_load_library_w(LPCWSTR lib_file_name)
     std::wstring_view w_name(lib_file_name ? lib_file_name : L"null");
     log(std::format("intercepted LoadLibraryW: lib: '{}'",
                     std::string(w_name.begin(), w_name.end())));
-    print_stacktrace();
+    misc::print_stacktrace();
 
     return original(lib_file_name);
 }
@@ -193,7 +197,7 @@ BOOL __stdcall memory_defender::hooked_free_library(HMODULE module)
 
     log(std::format("intercepted FreeLibrary: module: {:#x}",
                     std::bit_cast<std::uintptr_t>(module)));
-    print_stacktrace();
+    misc::print_stacktrace();
 
     return original(module);
 }
