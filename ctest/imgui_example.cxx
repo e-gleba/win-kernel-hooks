@@ -1,10 +1,11 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
+
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <backends/imgui_impl_sdl3.h>
 #include <expected>
 #include <imgui.h>
-#include <print>
 
 struct SDLData
 {
@@ -40,62 +41,91 @@ struct SDLData
     return SDLData{ window, gl_ctx };
 }
 
-int main()
+TEST_CASE("SDL initialization")
 {
     auto sdl_data = init_sdl();
-    if (!sdl_data)
+    REQUIRE(sdl_data.has_value());
+
+    SUBCASE("Window creation")
     {
-        std::print("SDL Error: {}\n", sdl_data.error());
-        return EXIT_FAILURE;
+        CHECK(sdl_data->window != nullptr);
     }
+
+    SUBCASE("OpenGL context")
+    {
+        CHECK(sdl_data->gl_ctx != nullptr);
+    }
+
+    // Cleanup
+    SDL_GL_DestroyContext(sdl_data->gl_ctx);
+    SDL_DestroyWindow(sdl_data->window);
+    SDL_Quit();
+}
+
+TEST_CASE("ImGui integration")
+{
+    auto sdl_data = init_sdl();
+    REQUIRE(sdl_data.has_value());
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::StyleColorsDark();
 
+    SUBCASE("Backend initialization")
+    {
+        CHECK(ImGui_ImplSDL3_InitForOpenGL(sdl_data->window, sdl_data->gl_ctx));
+        CHECK(ImGui_ImplOpenGL3_Init("#version 330"));
+
+        // Teardown
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+    }
+
+    ImGui::DestroyContext();
+    SDL_GL_DestroyContext(sdl_data->gl_ctx);
+    SDL_DestroyWindow(sdl_data->window);
+    SDL_Quit();
+}
+
+TEST_CASE("Main loop execution")
+{
+    const auto sdl_data = init_sdl();
+    REQUIRE(sdl_data.has_value());
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
     ImGui_ImplSDL3_InitForOpenGL(sdl_data->window, sdl_data->gl_ctx);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    bool running = true;
-    while (running)
+    SUBCASE("Frame rendering")
     {
+        REQUIRE_NOTHROW(
+            [&]()
+            {
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplSDL3_NewFrame();
+                ImGui::NewFrame();
+                ImGui::Render();
+            }());
+    }
+
+    SUBCASE("Event handling")
+    {
+        SDL_Event quit_event{};
+        quit_event.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&quit_event);
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL3_ProcessEvent(&event);
-            if (event.type == SDL_EVENT_QUIT)
-                running = false;
         }
-
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-
-        ImGui::Begin("Hello SDL3");
-        ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-        if (ImGui::Button("Exit"))
-            running = false;
-        ImGui::End();
-
-        ImGui::ShowDemoWindow();
-
-        ImGui::Render();
-        int w, h;
-        SDL_GetWindowSize(sdl_data->window, &w, &h);
-        glViewport(0, 0, w, h);
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        SDL_GL_SwapWindow(sdl_data->window);
     }
 
+    // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
-
     SDL_GL_DestroyContext(sdl_data->gl_ctx);
     SDL_DestroyWindow(sdl_data->window);
     SDL_Quit();
-    return EXIT_SUCCESS;
 }

@@ -10,7 +10,9 @@ add_test(NAME doctest_example COMMAND $<TARGET_FILE:doctest_example>)
 add_executable(imgui_example imgui_example.cxx)
 target_link_libraries(
         imgui_example
-        PRIVATE imgui
+        PRIVATE
+        doctest
+        imgui
         SDL3::SDL3
         imgui-opengl3)
 add_test(NAME imgui_example COMMAND $<TARGET_FILE:imgui_example>)
