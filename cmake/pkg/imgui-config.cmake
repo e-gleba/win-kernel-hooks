@@ -37,5 +37,5 @@ target_include_directories(imgui INTERFACE "${imgui_SOURCE_DIR}")
 # Fixing linking options
 target_sources(
         imgui
-        PUBLIC ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        PUBLIC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)

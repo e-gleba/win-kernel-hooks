@@ -1,83 +1,101 @@
-#include <GLFW/glfw3.h>
-#include <backends/imgui_impl_glfw.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_opengl.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <backends/imgui_impl_sdl3.h>
 #include <expected>
 #include <imgui.h>
 #include <print>
 
-[[nodiscard]] auto init_glfw() -> std::expected<GLFWwindow*, const char*>
+struct SDLData
 {
-    if (!glfwInit())
-    {
-        return std::unexpected("Failed to init GLFW");
-    }
+    SDL_Window*   window;
+    SDL_GLContext gl_ctx;
+};
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+[[nodiscard]] auto init_sdl() -> std::expected<SDLData, const char*>
+{
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD) != true)
+        return std::unexpected(SDL_GetError());
 
-    auto* window = glfwCreateWindow(1280, 720, "ImGui Test", nullptr, nullptr);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                        SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+    SDL_Window* window =
+        SDL_CreateWindow("ImGui SDL3", 1280, 720, SDL_WINDOW_OPENGL);
     if (!window)
+        return std::unexpected(SDL_GetError());
+
+    const SDL_GLContext gl_ctx = SDL_GL_CreateContext(window);
+    if (!gl_ctx)
     {
-        glfwTerminate();
-        return std::unexpected("Failed to create window");
+        SDL_DestroyWindow(window);
+        return std::unexpected(SDL_GetError());
     }
 
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // vsync
-    return window;
+    SDL_GL_MakeCurrent(window, gl_ctx);
+    SDL_GL_SetSwapInterval(1);
+    return SDLData{ window, gl_ctx };
 }
 
 int main()
 {
-    auto window = init_glfw();
-    if (!window)
+    auto sdl_data = init_sdl();
+    if (!sdl_data)
     {
-        std::print("Error: {}\n", window.error());
+        std::print("SDL Error: {}\n", sdl_data.error());
         return EXIT_FAILURE;
     }
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window.value(), true);
+
+    ImGui_ImplSDL3_InitForOpenGL(sdl_data->window, sdl_data->gl_ctx);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    while (!glfwWindowShouldClose(window.value()))
+    bool running = true;
+    while (running)
     {
-        glfwPollEvents();
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            if (event.type == SDL_EVENT_QUIT)
+                running = false;
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Hello ImGui");
-        ImGui::Text("Welcome to ImGui!");
+        ImGui::Begin("Hello SDL3");
+        ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
         if (ImGui::Button("Exit"))
-        {
-            glfwSetWindowShouldClose(window.value(), GLFW_TRUE);
-        }
+            running = false;
         ImGui::End();
 
         ImGui::ShowDemoWindow();
 
         ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window.value(), &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
+        int w, h;
+        SDL_GetWindowSize(sdl_data->window, &w, &h);
+        glViewport(0, 0, w, h);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(window.value());
+        SDL_GL_SwapWindow(sdl_data->window);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
-    glfwDestroyWindow(window.value());
-    glfwTerminate();
 
+    SDL_GL_DestroyContext(sdl_data->gl_ctx);
+    SDL_DestroyWindow(sdl_data->window);
+    SDL_Quit();
     return EXIT_SUCCESS;
 }
