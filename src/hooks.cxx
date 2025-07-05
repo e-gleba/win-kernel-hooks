@@ -80,7 +80,7 @@ bool hooks::install_hook(void* target, void* hook, const std::string& name)
     }
 
     // Store hook info
-    hooks.push_back(std::move(new_hook));
+    installed_hooks.push_back(std::move(new_hook));
     log(std::format("successfully hooked: {}", name));
     return true;
 }
@@ -275,7 +275,7 @@ void hooks::cleanup()
 {
     log("starting cleanup...");
 
-    for (const auto& hook : hooks)
+    for (const auto& hook : installed_hooks)
     {
         DWORD old_protect;
         VirtualProtect(

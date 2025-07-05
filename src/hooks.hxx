@@ -45,7 +45,7 @@ class hooks final
 
     static void cleanup();
 
-    static inline std::vector<sys_hook> hooks;
+    static inline std::vector<sys_hook> installed_hooks;
     static inline bool                  console_attached = false;
     static inline HANDLE                console_mutex    = nullptr;
 
