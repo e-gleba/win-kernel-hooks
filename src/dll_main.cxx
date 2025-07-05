@@ -9,11 +9,11 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL,
         case DLL_PROCESS_ATTACH:
         {
             DisableThreadLibraryCalls(hinstDLL); // Optimize DLL loading
-            return memory_defender::initialize();
+            return hooks::initialize();
         }
         case DLL_PROCESS_DETACH:
         {
-            memory_defender::cleanup();
+            hooks::cleanup();
             return TRUE;
         }
         default:
