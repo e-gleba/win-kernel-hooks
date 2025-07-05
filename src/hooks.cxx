@@ -284,7 +284,7 @@ void hooks::cleanup()
         VirtualProtect(hook.target_func, 5, old_protect, &old_protect);
         log(std::format("removed hook: {}", hook.name));
     }
-    hooks.clear();
+    installed_hooks.clear();
 
     if (console_mutex)
     {
