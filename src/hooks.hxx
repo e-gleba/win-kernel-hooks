@@ -18,6 +18,11 @@ struct sys_hook final
 
 class hooks final
 {
+public:
+    [[nodiscard]] static bool initialize();
+    static void               cleanup();
+
+private:
     [[nodiscard]] static BOOL WINAPI
     hooked_read_process_memory(HANDLE  process,
                                LPCVOID address,
@@ -40,10 +45,6 @@ class hooks final
     [[nodiscard]] static HMODULE __stdcall hooked_load_library_w(
         LPCWSTR lib_file_name);
     [[nodiscard]] static BOOL __stdcall hooked_free_library(HMODULE module);
-
-    [[nodiscard]] static bool initialize();
-
-    static void cleanup();
 
     static inline std::vector<sys_hook> installed_hooks;
     static inline bool                  console_attached = false;
